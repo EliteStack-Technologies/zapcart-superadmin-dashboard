@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, DollarSign } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -16,13 +16,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { signOut } from "@/lib/supabase";
+import { logout, isAuthenticated } from "@/lib/api";
 import { toast } from "sonner";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Clients", url: "/dashboard/clients", icon: Users },
+  { title: "Currencies", url: "/dashboard/currencies", icon: DollarSign },
 ];
 
 function AppSidebar() {
@@ -30,13 +30,9 @@ function AppSidebar() {
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      toast.success("Signed out successfully");
-      navigate("/auth");
-    }
+    logout();
+    toast.success("Signed out successfully");
+    navigate("/auth");
   };
 
   return (
@@ -86,25 +82,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+    const checkAuth = () => {
+      if (!isAuthenticated()) {
         navigate("/auth");
       }
       setLoading(false);
     };
 
     checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session) {
-          navigate("/auth");
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
 
   if (loading) {
@@ -119,12 +104,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <header className="h-14 border-b bg-card flex items-center px-4 sticky top-0 z-10">
             <SidebarTrigger />
-            <h1 className="ml-4 text-lg font-semibold text-foreground">Admin Dashboard</h1>
+            <h1 className="ml-4 text-base sm:text-lg font-semibold text-foreground truncate">Admin Dashboard</h1>
           </header>
-          <main className="flex-1 p-6 bg-background">
+          <main className="flex-1 p-4 sm:p-6 bg-background overflow-x-hidden">
             {children}
           </main>
         </div>

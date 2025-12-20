@@ -3,6 +3,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -27,129 +28,188 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Search, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { getClients, addClient, updateClient, deleteClient, changeClientStatus, setupDefaultCurrencies, Client as ApiClient } from "@/lib/api";
 
 const clientSchema = z.object({
   customer_name: z.string().min(1, "Customer name is required").max(150),
-  phone_number: z.string().max(20).optional(),
-  email: z.string().email("Invalid email").max(100).optional(),
-  business_name: z.string().max(150).optional(),
-  business_type: z.string().max(100).optional(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  status: z.enum(["Active", "Inactive"]),
+  phone_number: z.string().min(1, "Phone number is required").max(20),
+  email: z.string().email("Invalid email").min(1, "Email is required").max(100),
+  business_name: z.string().min(1, "Business name is required").max(150),
+  business_type: z.string().min(1, "Business type is required").max(100),
+  sub_domain_name: z.string().optional(),
+  start_date: z.string().min(1, "Start date is required"),
+  end_date: z.string().min(1, "End date is required"),
+  status: z.string(),
+  notes: z.string().optional(),
+  amount_per_month: z.string().optional(),
+  paid_months: z.string().optional(),
 });
 
-type Client = {
-  id: string;
-  customer_name: string;
-  phone_number: string | null;
-  email: string | null;
-  business_name: string | null;
-  business_type: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  status: string;
-  created_at: string;
-};
-
 export default function Clients() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ApiClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [editMode, setEditMode] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     customer_name: "",
     phone_number: "",
     email: "",
     business_name: "",
     business_type: "",
+    sub_domain_name: "",
     start_date: "",
     end_date: "",
-    status: "Active" as "Active" | "Inactive",
+    status: "active",
+    notes: "",
+    amount_per_month: "",
+    paid_months: "",
   });
 
   const fetchClients = async () => {
-    const { data, error } = await supabase
-      .from("clients")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast.error("Failed to fetch clients");
-    } else {
-      setClients(data || []);
+    try {
+      setLoading(true);
+      const response = await getClients(page, 25);
+      setClients(response.clients);
+      setTotalPages(response.totalPages);
+      setTotal(response.total);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to fetch clients");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchClients();
-
-    const channel = supabase
-      .channel("clients-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "clients" },
-        () => {
-          fetchClients();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  }, [page]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validation = clientSchema.safeParse({
-      ...formData,
-      phone_number: formData.phone_number || undefined,
-      email: formData.email || undefined,
-      business_name: formData.business_name || undefined,
-      business_type: formData.business_type || undefined,
-      start_date: formData.start_date || undefined,
-      end_date: formData.end_date || undefined,
-    });
+    const validation = clientSchema.safeParse(formData);
 
     if (!validation.success) {
       toast.error(validation.error.errors[0].message);
       return;
     }
 
-    const { error } = await supabase.from("clients").insert([
-      {
-        ...formData,
-        phone_number: formData.phone_number || null,
-        email: formData.email || null,
-        business_name: formData.business_name || null,
-        business_type: formData.business_type || null,
-        start_date: formData.start_date || null,
-        end_date: formData.end_date || null,
-      },
-    ]);
+    try {
+      const clientData = {
+        customer_name: formData.customer_name,
+        email: formData.email,
+        phone_number: formData.phone_number,
+        business_name: formData.business_name,
+        business_type: formData.business_type,
+        sub_domain_name: formData.sub_domain_name,
+        start_date: new Date(formData.start_date).toISOString(),
+        end_date: new Date(formData.end_date).toISOString(),
+        status: formData.status,
+        notes: formData.notes,
+        amount_per_month: formData.amount_per_month ? Number(formData.amount_per_month) : undefined,
+        paid_months: formData.paid_months ? Number(formData.paid_months) : undefined,
+      };
 
-    if (error) {
-      toast.error("Failed to add client");
-    } else {
-      toast.success("Client added successfully");
+      if (editMode && editingClientId) {
+        await updateClient(editingClientId, clientData);
+        toast.success("Client updated successfully");
+      } else {
+        await addClient(clientData);
+        // await setupDefaultCurrencies();
+        toast.success("Client added successfully");
+      }
+      
       setDialogOpen(false);
+      setEditMode(false);
+      setEditingClientId(null);
       setFormData({
         customer_name: "",
         phone_number: "",
         email: "",
         business_name: "",
         business_type: "",
+        sub_domain_name: "",
         start_date: "",
         end_date: "",
-        status: "Active",
+        status: "active",
+        notes: "",
+        amount_per_month: "",
+        paid_months: "",
       });
+      fetchClients();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : (editMode ? "Failed to update client" : "Failed to add client"));
+    }
+  };
+
+  const handleEdit = (client: ApiClient) => {
+    setEditMode(true);
+    setEditingClientId(client._id);
+    setFormData({
+      customer_name: client.customer_name,
+      phone_number: client.phone_number,
+      email: client.email,
+      business_name: client.business_name,
+      business_type: client.business_type,
+      sub_domain_name: client.sub_domain_name || "",
+      start_date: client.start_date ? new Date(client.start_date).toISOString().split('T')[0] : "",
+      end_date: client.end_date ? new Date(client.end_date).toISOString().split('T')[0] : "",
+      status: client.status,
+      notes: client.notes || "",
+      amount_per_month: client.amount_per_month?.toString() || "",
+      paid_months: client.paid_months?.toString() || "",
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (clientId: string) => {
+    setDeletingClientId(clientId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingClientId) return;
+
+    try {
+      await deleteClient(deletingClientId);
+      toast.success("Client deleted successfully");
+      setDeleteDialogOpen(false);
+      setDeletingClientId(null);
+      fetchClients();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete client");
+    }
+  };
+
+  const handleStatusChange = async (clientId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "active" ? "inactive" : "active";
+    
+    try {
+      await changeClientStatus(clientId, newStatus);
+      toast.success(`Client status changed to ${newStatus}`);
+      fetchClients();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to change client status");
     }
   };
 
@@ -162,12 +222,32 @@ export default function Clients() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Clients</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Clients</h2>
             <p className="text-muted-foreground">Manage your client database</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditMode(false);
+              setEditingClientId(null);
+              setFormData({
+                customer_name: "",
+                phone_number: "",
+                email: "",
+                business_name: "",
+                business_type: "",
+                sub_domain_name: "",
+                start_date: "",
+                end_date: "",
+                status: "active",
+                notes: "",
+                amount_per_month: "",
+                paid_months: "",
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -176,13 +256,13 @@ export default function Clients() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
+                <DialogTitle>{editMode ? "Edit Client" : "Add New Client"}</DialogTitle>
                 <DialogDescription>
-                  Fill in the client information below
+                  {editMode ? "Update the client information below" : "Fill in the client information below"}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="customer_name">Customer Name *</Label>
                     <Input
@@ -195,7 +275,7 @@ export default function Clients() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email *</Label>
                     <Input
                       id="email"
                       type="email"
@@ -203,35 +283,57 @@ export default function Clients() {
                       onChange={(e) =>
                         setFormData({ ...formData, email: e.target.value })
                       }
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone_number">Phone Number</Label>
+                    <Label htmlFor="phone_number">Phone Number *</Label>
                     <Input
                       id="phone_number"
                       value={formData.phone_number}
                       onChange={(e) =>
                         setFormData({ ...formData, phone_number: e.target.value })
                       }
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="business_name">Business Name</Label>
+                    <Label htmlFor="business_name">Business Name *</Label>
                     <Input
                       id="business_name"
                       value={formData.business_name}
                       onChange={(e) =>
                         setFormData({ ...formData, business_name: e.target.value })
                       }
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="business_type">Business Type</Label>
-                    <Input
-                      id="business_type"
+                    <Label htmlFor="business_type">Business Type *</Label>
+                    <Select
                       value={formData.business_type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, business_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select business type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="supermarket">Supermarket</SelectItem>
+                        <SelectItem value="wholesale">Wholesale</SelectItem>
+                        <SelectItem value="retail">Retail</SelectItem>
+                        <SelectItem value="cloths">Cloths</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sub_domain_name">Sub Domain Name</Label>
+                    <Input
+                      id="sub_domain_name"
+                      value={formData.sub_domain_name}
                       onChange={(e) =>
-                        setFormData({ ...formData, business_type: e.target.value })
+                        setFormData({ ...formData, sub_domain_name: e.target.value })
                       }
                     />
                   </div>
@@ -239,7 +341,7 @@ export default function Clients() {
                     <Label htmlFor="status">Status</Label>
                     <Select
                       value={formData.status}
-                      onValueChange={(value: "Active" | "Inactive") =>
+                      onValueChange={(value) =>
                         setFormData({ ...formData, status: value })
                       }
                     >
@@ -247,13 +349,13 @@ export default function Clients() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="start_date">Start Date</Label>
+                    <Label htmlFor="start_date">Start Date *</Label>
                     <Input
                       id="start_date"
                       type="date"
@@ -261,10 +363,11 @@ export default function Clients() {
                       onChange={(e) =>
                         setFormData({ ...formData, start_date: e.target.value })
                       }
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="end_date">End Date</Label>
+                    <Label htmlFor="end_date">End Date *</Label>
                     <Input
                       id="end_date"
                       type="date"
@@ -272,11 +375,48 @@ export default function Clients() {
                       onChange={(e) =>
                         setFormData({ ...formData, end_date: e.target.value })
                       }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="amount_per_month">Amount Per Month</Label>
+                    <Input
+                      id="amount_per_month"
+                      type="number"
+                      value={formData.amount_per_month}
+                      onChange={(e) =>
+                        setFormData({ ...formData, amount_per_month: e.target.value })
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paid_months">Paid Months</Label>
+                    <Input
+                      id="paid_months"
+                      type="number"
+                      value={formData.paid_months}
+                      onChange={(e) =>
+                        setFormData({ ...formData, paid_months: e.target.value })
+                      }
+                      placeholder="0"
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder="Add any additional notes about the client..."
+                    rows={4}
+                  />
+                </div>
                 <Button type="submit" className="w-full">
-                  Add Client
+                  {editMode ? "Update Client" : "Add Client"}
                 </Button>
               </form>
             </DialogContent>
@@ -289,11 +429,11 @@ export default function Clients() {
             placeholder="Search clients..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-sm"
+            className="w-full sm:max-w-sm"
           />
         </div>
 
-        <div className="border rounded-lg">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -301,31 +441,60 @@ export default function Clients() {
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Business</TableHead>
+                <TableHead>Currency</TableHead>
+                <TableHead>Amount/Month</TableHead>
+                <TableHead>Paid Months</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={11} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     No clients found. Add your first client to get started.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredClients.map((client) => (
-                  <TableRow key={client.id}>
+                  <TableRow key={client._id}>
                     <TableCell className="font-medium">{client.customer_name}</TableCell>
                     <TableCell>{client.email || "-"}</TableCell>
                     <TableCell>{client.phone_number || "-"}</TableCell>
                     <TableCell>{client.business_name || "-"}</TableCell>
+                    <TableCell>
+                      {client.currency_id ? (
+                        <span className="font-medium">
+                          {client.currency_id.symbol} {client.currency_id.name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.amount_per_month ? (
+                        <span className="font-medium">
+                          {client.currency_id?.symbol || ""} {client.amount_per_month}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {client.paid_months !== undefined && client.paid_months !== null ? (
+                        <span>{client.paid_months}</span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {client.start_date
                         ? new Date(client.start_date).toLocaleDateString()
@@ -337,16 +506,33 @@ export default function Clients() {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={client.status === "Active" ? "default" : "secondary"}
-                        className={
-                          client.status === "Active"
-                            ? "bg-success text-white"
-                            : ""
-                        }
-                      >
-                        {client.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={client.status === "active"}
+                          onCheckedChange={() => handleStatusChange(client._id, client.status)}
+                        />
+                        <span className="text-sm">
+                          {client.status === "active" ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(client)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(client._id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -354,7 +540,56 @@ export default function Clients() {
             </TableBody>
           </Table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {clients.length} of {total} clients
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1 || loading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-medium">Page {page} of {totalPages}</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(page + 1)}
+                disabled={page >= totalPages || loading}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the client
+              and remove their data from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

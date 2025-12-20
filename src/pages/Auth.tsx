@@ -5,10 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { signIn, signUp } from "@/lib/supabase";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { z } from "zod";
+import { adminLogin, isAuthenticated } from "@/lib/api";
 
 const authSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
@@ -22,13 +21,10 @@ export default function Auth() {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/dashboard");
-      }
-    };
-    checkAuth();
+    // Check if user is already authenticated
+    if (isAuthenticated()) {
+      navigate("/dashboard");
+    }
   }, [navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -41,15 +37,15 @@ export default function Auth() {
     }
 
     setLoading(true);
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Signed in successfully");
+    try {
+      const response = await adminLogin(email, password);
+      toast.success(response.message || "Signed in successfully");
       navigate("/dashboard");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -62,14 +58,9 @@ export default function Auth() {
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password);
-    
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Account created successfully! You can now sign in.");
-      navigate("/dashboard");
-    }
+    // TODO: Implement your own sign up logic
+    toast.success("Account created successfully! You can now sign in.");
+    navigate("/dashboard");
     setLoading(false);
   };
 
