@@ -45,7 +45,8 @@ import { z } from "zod";
 import { getClients, addClient, updateClient, deleteClient, changeClientStatus, setupDefaultCurrencies, Client as ApiClient } from "@/lib/api";
 
 const clientSchema = z.object({
-  customer_name: z.string().min(1, "Customer name is required").max(150),
+  client_id: z.string().optional(),
+  client_name: z.string().min(1, "Client name is required").max(150),
   phone_number: z.string().min(1, "Phone number is required").max(20),
   email: z.string().email("Invalid email").min(1, "Email is required").max(100),
   business_name: z.string().min(1, "Business name is required").max(150),
@@ -72,7 +73,8 @@ export default function Clients() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    customer_name: "",
+    client_id: "",
+    client_name: "",
     phone_number: "",
     email: "",
     business_name: "",
@@ -116,7 +118,8 @@ export default function Clients() {
 
     try {
       const clientData = {
-        customer_name: formData.customer_name,
+        client_id: formData.client_id,
+        client_name: formData.client_name,
         email: formData.email,
         phone_number: formData.phone_number,
         business_name: formData.business_name,
@@ -143,7 +146,8 @@ export default function Clients() {
       setEditMode(false);
       setEditingClientId(null);
       setFormData({
-        customer_name: "",
+        client_id: "",
+        client_name: "",
         phone_number: "",
         email: "",
         business_name: "",
@@ -166,7 +170,8 @@ export default function Clients() {
     setEditMode(true);
     setEditingClientId(client._id);
     setFormData({
-      customer_name: client.customer_name,
+      client_id: client.client_id || "",
+      client_name: client.client_name,
       phone_number: client.phone_number,
       email: client.email,
       business_name: client.business_name,
@@ -214,7 +219,8 @@ export default function Clients() {
   };
 
   const filteredClients = clients.filter((client) =>
-    client.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (client.client_id && String(client.client_id).toLowerCase().includes(searchTerm.toLowerCase())) ||
     client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -233,7 +239,8 @@ export default function Clients() {
               setEditMode(false);
               setEditingClientId(null);
               setFormData({
-                customer_name: "",
+                client_id: "",
+                client_name: "",
                 phone_number: "",
                 email: "",
                 business_name: "",
@@ -264,14 +271,25 @@ export default function Clients() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="customer_name">Customer Name *</Label>
+                    <Label htmlFor="client_name">Client Name *</Label>
                     <Input
-                      id="customer_name"
-                      value={formData.customer_name}
+                      id="client_name"
+                      value={formData.client_name}
                       onChange={(e) =>
-                        setFormData({ ...formData, customer_name: e.target.value })
+                        setFormData({ ...formData, client_name: e.target.value })
                       }
                       required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="client_id">Client ID</Label>
+                    <Input
+                      id="client_id"
+                      value={formData.client_id}
+                      onChange={(e) =>
+                        setFormData({ ...formData, client_id: e.target.value })
+                      }
+                      placeholder="Auto-generated if not provided"
                     />
                   </div>
                   <div className="space-y-2">
@@ -437,7 +455,8 @@ export default function Clients() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer Name</TableHead>
+                <TableHead>Client ID</TableHead>
+                <TableHead>Client Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Business</TableHead>
@@ -453,20 +472,21 @@ export default function Clients() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8">
+                  <TableCell colSpan={12} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filteredClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No clients found. Add your first client to get started.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredClients.map((client) => (
                   <TableRow key={client._id}>
-                    <TableCell className="font-medium">{client.customer_name}</TableCell>
+                    <TableCell>{client.client_id || "-"}</TableCell>
+                    <TableCell className="font-medium">{client.client_name}</TableCell>
                     <TableCell>{client.email || "-"}</TableCell>
                     <TableCell>{client.phone_number || "-"}</TableCell>
                     <TableCell>{client.business_name || "-"}</TableCell>

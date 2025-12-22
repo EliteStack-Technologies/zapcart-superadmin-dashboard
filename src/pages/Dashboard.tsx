@@ -110,7 +110,7 @@ export default function Dashboard() {
                   {analytics?.expiring_soon_clients.map((client) => (
                     <div key={client._id} className="flex justify-between items-center p-2 border rounded">
                       <div>
-                        <p className="font-medium text-sm">{client.customer_name}</p>
+                        <p className="font-medium text-sm">{client.client_name}</p>
                         <p className="text-xs text-muted-foreground">{client.business_name}</p>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -137,7 +137,10 @@ export default function Dashboard() {
                   {analytics?.recently_expired_clients.map((client) => (
                     <div key={client._id} className="flex justify-between items-center p-2 border rounded">
                       <div>
-                        <p className="font-medium text-sm">{client.customer_name}</p>
+                        <p className="font-medium text-sm">
+                          {client.client_name}
+                          {client.client_id && ` - ${client.client_id}`}
+                        </p>
                         <p className="text-xs text-muted-foreground">{client.business_name}</p>
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -162,7 +165,8 @@ export default function Dashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer Name</TableHead>
+                    <TableHead>Client ID</TableHead>
+                    <TableHead>Client Name</TableHead>
                     <TableHead>Business</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Total Revenue</TableHead>
@@ -171,14 +175,15 @@ export default function Dashboard() {
                 <TableBody>
                   {analytics?.top_clients.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         No client data available
                       </TableCell>
                     </TableRow>
                   ) : (
                     analytics?.top_clients.map((client) => (
                       <TableRow key={client._id}>
-                        <TableCell className="font-medium">{client.customer_name}</TableCell>
+                        <TableCell className="font-medium">{client.client_id || "-"}</TableCell>
+                        <TableCell className="font-medium">{client.client_name}</TableCell>
                         <TableCell>{client.business_name}</TableCell>
                         <TableCell>
                           <Badge variant={client.status === "active" ? "default" : "secondary"}>

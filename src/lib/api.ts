@@ -50,7 +50,8 @@ export const isAuthenticated = () => {
 
 export interface Client {
   _id: string;
-  customer_name: string;
+  client_id?: string;
+  client_name: string;
   email: string;
   phone_number: string;
   business_name: string;
@@ -81,7 +82,8 @@ export interface ClientsResponse {
 }
 
 export interface CreateClientData {
-  customer_name: string;
+  client_id?: string;
+  client_name: string;
   email: string;
   phone_number: string;
   business_name: string;
@@ -266,7 +268,8 @@ export interface DashboardAnalytics {
   };
   expiring_soon_clients: Array<{
     _id: string;
-    customer_name: string;
+    client_id?: string;
+    client_name: string;
     email: string;
     business_name: string;
     end_date: string;
@@ -275,7 +278,8 @@ export interface DashboardAnalytics {
   }>;
   recently_expired_clients: Array<{
     _id: string;
-    customer_name: string;
+    client_id?: string;
+    client_name: string;
     email: string;
     business_name: string;
     end_date: string;
@@ -295,7 +299,8 @@ export interface DashboardAnalytics {
   }>;
   top_clients: Array<{
     _id: string;
-    customer_name: string;
+    client_id?: string;
+    client_name: string;
     email: string;
     business_name: string;
     start_date: string;
