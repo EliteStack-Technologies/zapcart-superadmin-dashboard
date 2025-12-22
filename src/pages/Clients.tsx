@@ -217,13 +217,13 @@ export default function Clients() {
       toast.error(error instanceof Error ? error.message : "Failed to change client status");
     }
   };
-  
+
 
   const filteredClients = clients.filter((client) =>
-    client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (client.client_id && String(client.client_id).toLowerCase().includes(searchTerm.toLowerCase())) ||
-    client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (client.business_name && client.business_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
