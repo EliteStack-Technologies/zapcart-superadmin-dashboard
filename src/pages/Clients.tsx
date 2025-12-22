@@ -217,6 +217,7 @@ export default function Clients() {
       toast.error(error instanceof Error ? error.message : "Failed to change client status");
     }
   };
+  
 
   const filteredClients = clients.filter((client) =>
     client.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
