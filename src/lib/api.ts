@@ -65,6 +65,7 @@ export interface Client {
   paid_months?: number;
   createdAt?: string;
   updatedAt?: string;
+  whatsapp_token?: string;
   currency_id?: {
     _id: string;
     name: string;

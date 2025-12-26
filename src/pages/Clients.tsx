@@ -58,6 +58,7 @@ const clientSchema = z.object({
   notes: z.string().optional(),
   amount_per_month: z.string().optional(),
   paid_months: z.string().optional(),
+  whatsapp_token: z.string().optional(),
 });
 
 export default function Clients() {
@@ -72,6 +73,7 @@ export default function Clients() {
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+  const [originalWhatsappToken, setOriginalWhatsappToken] = useState<string>("");
   const [formData, setFormData] = useState({
     client_id: "",
     client_name: "",
@@ -86,6 +88,7 @@ export default function Clients() {
     notes: "",
     amount_per_month: "",
     paid_months: "",
+    whatsapp_token: "",
   });
 
   const fetchClients = async () => {
@@ -117,7 +120,7 @@ export default function Clients() {
     }
 
     try {
-      const clientData = {
+      const clientData: any = {
         client_id: formData.client_id,
         client_name: formData.client_name,
         email: formData.email,
@@ -133,6 +136,19 @@ export default function Clients() {
         paid_months: formData.paid_months ? Number(formData.paid_months) : undefined,
       };
 
+      // Only include whatsapp_token if:
+      // - In edit mode: token has changed from original
+      // - In create mode: token has a value
+      if (editMode) {
+        if (formData.whatsapp_token !== originalWhatsappToken) {
+          clientData.whatsapp_token = formData.whatsapp_token;
+        }
+      } else {
+        if (formData.whatsapp_token && formData.whatsapp_token.trim()) {
+          clientData.whatsapp_token = formData.whatsapp_token;
+        }
+      }
+
       if (editMode && editingClientId) {
         await updateClient(editingClientId, clientData);
         toast.success("Client updated successfully");
@@ -145,6 +161,7 @@ export default function Clients() {
       setDialogOpen(false);
       setEditMode(false);
       setEditingClientId(null);
+      setOriginalWhatsappToken("");
       setFormData({
         client_id: "",
         client_name: "",
@@ -159,6 +176,7 @@ export default function Clients() {
         notes: "",
         amount_per_month: "",
         paid_months: "",
+        whatsapp_token: "",
       });
       fetchClients();
     } catch (error) {
@@ -169,8 +187,10 @@ export default function Clients() {
   const handleEdit = (client: ApiClient) => {
     setEditMode(true);
     setEditingClientId(client._id);
+    const originalToken = client.whatsapp_token?.toString() || "";
+    setOriginalWhatsappToken(originalToken);
     setFormData({
-      client_id: client.client_id || "",
+      client_id: client.client_id?.toString() || "",
       client_name: client.client_name,
       phone_number: client.phone_number,
       email: client.email,
@@ -183,6 +203,7 @@ export default function Clients() {
       notes: client.notes || "",
       amount_per_month: client.amount_per_month?.toString() || "",
       paid_months: client.paid_months?.toString() || "",
+      whatsapp_token: client.whatsapp_token?.toString() || "",
     });
     setDialogOpen(true);
   };
@@ -239,6 +260,7 @@ export default function Clients() {
             if (!open) {
               setEditMode(false);
               setEditingClientId(null);
+              setOriginalWhatsappToken("");
               setFormData({
                 client_id: "",
                 client_name: "",
@@ -253,6 +275,7 @@ export default function Clients() {
                 notes: "",
                 amount_per_month: "",
                 paid_months: "",
+                whatsapp_token: "",
               });
             }
           }}>
@@ -422,6 +445,18 @@ export default function Clients() {
                     />
                   </div>
                 </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="whatsapp_token">WhatsApp Token</Label>
+                    <Textarea
+                      id="whatsapp_token"
+                      value={formData.whatsapp_token}
+                      onChange={(e) =>
+                        setFormData({ ...formData, whatsapp_token: e.target.value })
+                      }
+                      placeholder="Enter WhatsApp token"
+                      rows={3}
+                    />
+                  </div>
                 <div className="space-y-2">
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea
