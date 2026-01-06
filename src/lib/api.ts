@@ -60,6 +60,7 @@ export interface Client {
   start_date: string;
   end_date: string;
   status: string;
+  enquiry_mode?: boolean;
   notes?: string;
   amount_per_month?: number;
   paid_months?: number;
@@ -93,6 +94,7 @@ export interface CreateClientData {
   start_date: string;
   end_date: string;
   status: string;
+  enquiry_mode?: boolean;
   notes?: string;
   amount_per_month?: number;
   paid_months?: number;

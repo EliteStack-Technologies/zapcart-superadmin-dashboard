@@ -55,6 +55,7 @@ const clientSchema = z.object({
   start_date: z.string().min(1, "Start date is required"),
   end_date: z.string().min(1, "End date is required"),
   status: z.string(),
+  enquiry_mode: z.boolean().optional(),
   notes: z.string().optional(),
   amount_per_month: z.string().optional(),
   paid_months: z.string().optional(),
@@ -85,6 +86,7 @@ export default function Clients() {
     start_date: "",
     end_date: "",
     status: "active",
+    enquiry_mode: false,
     notes: "",
     amount_per_month: "",
     paid_months: "",
@@ -131,6 +133,7 @@ export default function Clients() {
         start_date: new Date(formData.start_date).toISOString(),
         end_date: new Date(formData.end_date).toISOString(),
         status: formData.status,
+        enquiry_mode: formData.enquiry_mode,
         notes: formData.notes,
         amount_per_month: formData.amount_per_month ? Number(formData.amount_per_month) : undefined,
         paid_months: formData.paid_months ? Number(formData.paid_months) : undefined,
@@ -173,6 +176,7 @@ export default function Clients() {
         start_date: "",
         end_date: "",
         status: "active",
+        enquiry_mode: false,
         notes: "",
         amount_per_month: "",
         paid_months: "",
@@ -200,6 +204,7 @@ export default function Clients() {
       start_date: client.start_date ? new Date(client.start_date).toISOString().split('T')[0] : "",
       end_date: client.end_date ? new Date(client.end_date).toISOString().split('T')[0] : "",
       status: client.status,
+      enquiry_mode: client.enquiry_mode || false,
       notes: client.notes || "",
       amount_per_month: client.amount_per_month?.toString() || "",
       paid_months: client.paid_months?.toString() || "",
@@ -239,6 +244,18 @@ export default function Clients() {
     }
   };
 
+  const handleEnquiryModeChange = async (clientId: string, currentEnquiryMode: boolean) => {
+    const newEnquiryMode = !currentEnquiryMode;
+    
+    try {
+      await updateClient(clientId, { enquiry_mode: newEnquiryMode });
+      toast.success(`Enquiry mode ${newEnquiryMode ? 'enabled' : 'disabled'}`);
+      fetchClients();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to change enquiry mode");
+    }
+  };
+
 
   const filteredClients = clients.filter((client) =>
     client.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -272,6 +289,7 @@ export default function Clients() {
                 start_date: "",
                 end_date: "",
                 status: "active",
+                enquiry_mode: false,
                 notes: "",
                 amount_per_month: "",
                 paid_months: "",
@@ -397,6 +415,21 @@ export default function Clients() {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="enquiry_mode">Enquiry Mode</Label>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="enquiry_mode"
+                        checked={formData.enquiry_mode}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, enquiry_mode: checked })
+                        }
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {formData.enquiry_mode ? "Enabled" : "Disabled"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="start_date">Start Date *</Label>
                     <Input
                       id="start_date"
@@ -502,6 +535,7 @@ export default function Clients() {
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Enquiry Mode</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -569,6 +603,17 @@ export default function Clients() {
                         />
                         <span className="text-sm">
                           {client.status === "active" ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={client.enquiry_mode || false}
+                          onCheckedChange={() => handleEnquiryModeChange(client._id, client.enquiry_mode || false)}
+                        />
+                        <span className="text-sm">
+                          {client.enquiry_mode ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                     </TableCell>
